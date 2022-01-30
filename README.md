@@ -12,4 +12,4 @@ Under the hood, it currently utilizes guava and shadow in a gradle environment.
 - run the built jar (`build/libs/countvotes.jar`) with the command `java -cp * com.github.simulatan.countvotes.Main`
 
 ### Bugs
-...will be tracked in the [github issues](https://github.com/SIMULATAN/countvotes/issues).
+...will be tracked in the [GitHub issues](https://github.com/SIMULATAN/countvotes/issues).

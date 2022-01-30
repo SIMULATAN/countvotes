@@ -3,11 +3,13 @@ package com.github.simulatan.countvotes;
 import com.github.simulatan.countvotes.utils.Candidate;
 import com.github.simulatan.countvotes.utils.LogPrintStream;
 import com.github.simulatan.countvotes.utils.Vote;
+import jcurses.system.InputChar;
 import jcurses.system.Toolkit;
 import jcurses.widgets.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -22,6 +24,7 @@ public class Main {
 
 	private static Window window;
 	private static List scores;
+	private static List searchResultsList;
 
 	public static void main(String[] args) {
 		log("Starting...");
@@ -31,7 +34,15 @@ public class Main {
 		int height = Toolkit.getScreenHeight() / 16 * 15;
 		int width = Toolkit.getScreenWidth() / 16 * 15;
 
-		window = new Window(width, height,true,"Count Votes");
+		try {
+			Field defaultClosingChar = Window.class.getDeclaredField("__defaultClosingChar");
+			defaultClosingChar.setAccessible(true);
+			defaultClosingChar.set(Window.class, new InputChar(InputChar.KEY_F4));
+		} catch (Exception e) {
+			log(e);
+		}
+
+		window = new Window(width, height, true, "Count Votes");
 		DefaultLayoutManager mgr = new DefaultLayoutManager();
 		mgr.bindToContainer(window.getRootPanel());
 
@@ -42,6 +53,7 @@ public class Main {
 			}
 		};
 		scores.setSelectable(false);
+		scores.add("Total votes go here...");
 
 		List recentActions = new List();
 		recentActions.setSelectable(true);
@@ -58,49 +70,62 @@ public class Main {
 			}
 		});
 
-		TextField searchCandidateField = new TextField();
+		final Pattern validCandidateNames = Pattern.compile("^[a-zA-Z0-9_\\-\\sÄäÖöÜüß]*$", Pattern.CASE_INSENSITIVE);
+		TextField searchCandidateField = new TextField() {
+			@Override
+			protected boolean handleInput(InputChar ch) {
+				if (ch.isSpecialCode()) return super.handleInput(ch);
+
+				if (validCandidateNames.matcher(Character.toString(ch.getCharacter())).matches())
+					return super.handleInput(ch);
+
+				return false;
+			}
+		};
 
 		final Pattern newCandidatePattern = Pattern.compile("^.*\"(.+)\".*$", Pattern.MULTILINE);
-		List searchResults = new List();
-		searchResults.setSelectable(false);
-		searchResults.add("Type something to search");
-		searchResults.addListener(val -> {
+		searchResultsList = new List();
+		searchResultsList.setSelectable(false);
+		searchResultsList.add("Type something to search");
+		searchResultsList.addListener(val -> {
 			Matcher matcher;
 			String candidateName;
 			if (val.getItem() instanceof String s && (matcher = newCandidatePattern.matcher(s)).matches()) {
 				candidateName = matcher.group(1);
-				searchResults.add(candidateName);
-				searchResults.remove(s);
+				searchResultsList.add(candidateName);
+				searchResultsList.remove(s);
 			} else
 				candidateName = (String) val.getItem();
 			addVote(new Vote(Candidate.of(candidateName)));
 			recentActions.add(0, candidateName);
 			searchCandidateField.setText("");
 			updateVoteCount();
+			// TODO: fix
+			searchCandidateField.getFocus();
 		});
 
 		searchCandidateField.getFocus();
 		searchCandidateField.addListener(val -> {
-			searchResults.clear();
+			searchResultsList.clear();
 			String newValue = ((TextField) val.getSource()).getText();
-			votes.getCandidateStartingWith(newValue).forEach(searchResults::add);
+			votes.getCandidateStartingWith(newValue).forEach(searchResultsList::add);
 
 			if (!newValue.isEmpty() && !votes.containsKey(Candidate.of(newValue)))
-				searchResults.add("Add new candidate with name \"" + newValue + "\"");
+				searchResultsList.add("Add new candidate with name \"" + newValue + "\"");
 
-			if (searchResults.getItemsCount() == 0) {
-				searchResults.add("Type something to search");
-				searchResults.setSelectable(false);
+			if (searchResultsList.getItemsCount() == 0) {
+				searchResultsList.add("Type something to search");
+				searchResultsList.setSelectable(false);
 			} else {
-				searchResults.setSelectable(true);
+				searchResultsList.setSelectable(true);
 			}
 			window.show();
 		});
 
-		mgr.addWidget(searchCandidateField, 30, 1, width - 67, height / 5, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
-		mgr.addWidget(searchResults, 30, 2, width - 67, height - 4, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
-		mgr.addWidget(scores, 0, height - 15, 30, 13, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_LEFT);
-		mgr.addWidget(recentActions, width - 37, 0, 35, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_RIGHT);
+		mgr.addWidget(searchCandidateField, 40, 1, width - 82, height / 5, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
+		mgr.addWidget(searchResultsList, 40, 2, width - 82, height - 4, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
+		mgr.addWidget(scores, 0, 0, 40, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_LEFT);
+		mgr.addWidget(recentActions, width - 42, 0, 40, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_RIGHT);
 		window.show();
 		Runtime.getRuntime().addShutdownHook(new Thread(window::close));
 	}
@@ -109,15 +134,13 @@ public class Main {
 	private static void updateVoteCount() {
 		scores.clear();
 		scores.add("Total votes: " + votes.values().stream().mapToInt(java.util.List::size).sum());
-		// add votes to scores list, sorted by votes
+		// add votes to score list, sorted by votes
 		votes
 			.entrySet()
 			.stream()
 			.sorted(Comparator.comparingInt(e -> ((Map.Entry<Candidate, java.util.List<Vote>>) e).getValue().size()).reversed())
 			.forEach(e -> scores.add(e.getKey().getName() + ": " + e.getValue().size()));
-		scores.setSelectable(false);
 		window.show();
-		scores.setSelectable(false);
 	}
 
 	private static final Path LOGFILE;
