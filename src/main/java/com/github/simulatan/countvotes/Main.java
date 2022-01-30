@@ -24,6 +24,7 @@ public class Main {
 	private static List scores;
 
 	public static void main(String[] args) {
+		log("Starting...");
 		System.setOut(new LogPrintStream(System.out));
 		System.setErr(new LogPrintStream(System.err));
 
@@ -57,6 +58,8 @@ public class Main {
 			}
 		});
 
+		TextField searchCandidateField = new TextField();
+
 		final Pattern newCandidatePattern = Pattern.compile("^.*\"(.+)\".*$", Pattern.MULTILINE);
 		List searchResults = new List();
 		searchResults.setSelectable(false);
@@ -72,11 +75,10 @@ public class Main {
 				candidateName = (String) val.getItem();
 			addVote(new Vote(Candidate.of(candidateName)));
 			recentActions.add(0, candidateName);
+			searchCandidateField.setText("");
 			updateVoteCount();
-			searchResults.getFocus();
 		});
 
-		TextField searchCandidateField = new TextField();
 		searchCandidateField.getFocus();
 		searchCandidateField.addListener(val -> {
 			searchResults.clear();
@@ -95,11 +97,10 @@ public class Main {
 			window.show();
 		});
 
-
-		mgr.addWidget(searchCandidateField, 30, 1, Toolkit.getScreenWidth() / 4 * 3 - 30, height / 5, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
-		mgr.addWidget(searchResults, 30, 2, Toolkit.getScreenWidth() / 4 * 3 - 30, height - 4, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
-		mgr.addWidget(scores, 0, 30, 30, 13, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_LEFT);
-		mgr.addWidget(recentActions, width - 38, 0, 35, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_RIGHT);
+		mgr.addWidget(searchCandidateField, 30, 1, width - 67, height / 5, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
+		mgr.addWidget(searchResults, 30, 2, width - 67, height - 4, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
+		mgr.addWidget(scores, 0, height - 15, 30, 13, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_LEFT);
+		mgr.addWidget(recentActions, width - 37, 0, 35, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_RIGHT);
 		window.show();
 		Runtime.getRuntime().addShutdownHook(new Thread(window::close));
 	}
