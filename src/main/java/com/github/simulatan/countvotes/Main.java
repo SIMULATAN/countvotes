@@ -96,8 +96,9 @@ public class Main {
 				searchResultsList.remove(s);
 			} else
 				candidateName = (String) val.getItem();
-			addVote(new Vote(Candidate.of(candidateName)));
-			recentActions.add(0, candidateName);
+			Vote vote = new Vote(Candidate.of(candidateName));
+			addVote(vote);
+			recentActions.add(0, vote.getFormatted());
 			searchCandidateField.setText("");
 			updateVoteCount();
 			// TODO: fix
