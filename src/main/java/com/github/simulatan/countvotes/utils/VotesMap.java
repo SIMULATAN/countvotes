@@ -1,9 +1,6 @@
 package com.github.simulatan.countvotes.utils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class VotesMap extends HashMap<Candidate, List<Vote>> {
@@ -14,7 +11,7 @@ public class VotesMap extends HashMap<Candidate, List<Vote>> {
 			.stream()
 			.map(Candidate::getName)
 			.filter(Objects::nonNull)
-			.filter(key -> key.startsWith(prefix))
+			.filter(key -> key.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)))
 			.collect(Collectors.toList());
 	}
 

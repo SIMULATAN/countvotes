@@ -1,9 +1,6 @@
 package com.github.simulatan.countvotes;
 
-import com.github.simulatan.countvotes.utils.Candidate;
-import com.github.simulatan.countvotes.utils.ListWidget;
-import com.github.simulatan.countvotes.utils.LogPrintStream;
-import com.github.simulatan.countvotes.utils.Vote;
+import com.github.simulatan.countvotes.utils.*;
 import jcurses.event.ItemEvent;
 import jcurses.system.InputChar;
 import jcurses.system.Toolkit;
@@ -60,9 +57,7 @@ public class Main {
 
 		recentActions = new ListWidget();
 		recentActions.setSelectable(true);
-		recentActions.addListener(event -> {
-			showContextMenu(height, width, event);
-		});
+		recentActions.addListener(event -> showContextMenu(height, width, event));
 
 		final Pattern validCandidateNames = Pattern.compile("^[a-zA-Z0-9_\\-\\sÄäÖöÜüß]*$", Pattern.CASE_INSENSITIVE);
 		searchCandidateField = new TextField() {
@@ -181,8 +176,8 @@ public class Main {
 			.sorted(Comparator.comparingInt(e -> ((Map.Entry<Candidate, java.util.List<Vote>>) e).getValue().size()).reversed())
 			.forEach(e -> scores.add(e.getKey().getName() + ": " + e.getValue().size()));
 		recentActions.clear();
-		recentVotes.stream()
-				.map(Vote::getFormatted)
+		Utils.reverse(recentVotes.stream()
+				.map(Vote::getFormatted))
 				.forEach(recentActions::add);
 		if (recentActions.getItemsCount() == 0) {
 			recentActions.add("No recent actions");
