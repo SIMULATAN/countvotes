@@ -1,19 +1,24 @@
 package com.github.simulatan.countvotes;
 
 import com.github.simulatan.countvotes.utils.Candidate;
+import com.github.simulatan.countvotes.utils.ListWidget;
 import com.github.simulatan.countvotes.utils.LogPrintStream;
 import com.github.simulatan.countvotes.utils.Vote;
+import jcurses.event.ItemEvent;
 import jcurses.system.InputChar;
 import jcurses.system.Toolkit;
 import jcurses.widgets.*;
 
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,8 +28,10 @@ import static com.github.simulatan.countvotes.utils.VotesManager.*;
 public class Main {
 
 	private static Window window;
-	private static List scores;
-	private static List searchResultsList;
+	private static ListWidget scores;
+	private static ListWidget searchResultsList;
+	private static ListWidget recentActions;
+	private static TextField searchCandidateField;
 
 	public static void main(String[] args) {
 		log("Starting...");
@@ -46,32 +53,19 @@ public class Main {
 		DefaultLayoutManager mgr = new DefaultLayoutManager();
 		mgr.bindToContainer(window.getRootPanel());
 
-		scores = new List() {
-			@Override
-			protected boolean isFocusable() {
-				return false;
-			}
-		};
+		scores = new ListWidget();
+		scores.setFocusable(false);
 		scores.setSelectable(false);
 		scores.add("Total votes go here...");
 
-		List recentActions = new List();
+		recentActions = new ListWidget();
 		recentActions.setSelectable(true);
 		recentActions.addListener(event -> {
-			PopUpMenu menu = new PopUpMenu(width - 8, height, "Delete Vote?");
-			menu.add("Delete");
-			menu.add("Show information");
-			menu.add("Cancel");
-			menu.show();
-			if (menu.getSelectedItem().equals("Delete")) {
-				// TODO: implement
-				// removeVote(event.getItem());
-				updateVoteCount();
-			}
+			showContextMenu(height, width, event);
 		});
 
 		final Pattern validCandidateNames = Pattern.compile("^[a-zA-Z0-9_\\-\\sÄäÖöÜüß]*$", Pattern.CASE_INSENSITIVE);
-		TextField searchCandidateField = new TextField() {
+		searchCandidateField = new TextField() {
 			@Override
 			protected boolean handleInput(InputChar ch) {
 				if (ch.isSpecialCode()) return super.handleInput(ch);
@@ -84,7 +78,7 @@ public class Main {
 		};
 
 		final Pattern newCandidatePattern = Pattern.compile("^.*\"(.+)\".*$", Pattern.MULTILINE);
-		searchResultsList = new List();
+		searchResultsList = new ListWidget();
 		searchResultsList.setSelectable(false);
 		searchResultsList.add("Type something to search");
 		searchResultsList.addListener(val -> {
@@ -131,6 +125,51 @@ public class Main {
 		Runtime.getRuntime().addShutdownHook(new Thread(window::close));
 	}
 
+	private static void showContextMenu(int height, int width, ItemEvent event) {
+		PopUpMenu menu = new PopUpMenu(width / 2 + 5, height / 2 - 2, "Context Actions");
+		menu.add("Delete");
+		menu.add("Show information");
+		menu.add("Cancel");
+		menu.show();
+		String item = (String) event.getItem();
+		Vote vote = getVote(item);
+		if (menu.getSelectedItem().equals("Delete")) {
+			if (vote != null) {
+				PopUpMenu confirm = new PopUpMenu(width / 2 + 5, height / 2 - 2, "Delete vote?");
+				confirm.add("Confirm Deletion");
+				confirm.add("Don't delete");
+				confirm.show();
+				if (confirm.getSelectedItem().equals("Confirm Deletion")) {
+					removeVote(vote);
+					menu.remove(item);
+					updateVoteCount();
+				} else {
+					showContextMenu(height, width, event);
+				}
+			} else {
+				log("Vote not found (formatted: " + event.getItem() + ")\n " + votes);
+			}
+		} else if (menu.getSelectedItem().equalsIgnoreCase("Show information")) {
+			log("Showing info for: " + vote);
+			if (vote != null) {
+				List<String> lines = Arrays.asList(
+					"Candidate: " + vote.candidate().getName(),
+					"Time: " + vote.getTimeFormatted(),
+					"Time (ms): " + vote.time(),
+					"ID: " + vote.id(),
+					"Back"
+				);
+				PopUpMenu info = new PopUpMenu(width / 2, height / 2 - 3, "Vote information");
+				lines.forEach(info::add);
+				do {
+					info.show();
+					java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(info.getSelectedItem()), null);
+				} while (!info.getSelectedItem().equalsIgnoreCase("Back"));
+				showContextMenu(height, width, event);
+			}
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	private static void updateVoteCount() {
 		scores.clear();
@@ -141,7 +180,26 @@ public class Main {
 			.stream()
 			.sorted(Comparator.comparingInt(e -> ((Map.Entry<Candidate, java.util.List<Vote>>) e).getValue().size()).reversed())
 			.forEach(e -> scores.add(e.getKey().getName() + ": " + e.getValue().size()));
+		recentActions.clear();
+		recentVotes.stream()
+				.map(Vote::getFormatted)
+				.forEach(recentActions::add);
+		if (recentActions.getItemsCount() == 0) {
+			recentActions.add("No recent actions");
+			recentActions.setSelectable(false);
+			recentActions.setFocusable(false);
+			searchCandidateField.getFocus();
+		} else {
+			recentActions.setFocusable(true);
+		}
 		window.show();
+	}
+
+	private static Vote getVote(String name) {
+		return recentVotes.stream()
+				.filter(v -> v.id() == Integer.parseInt(name.split(" ")[0].substring(1)))
+				.findFirst()
+				.orElse(null);
 	}
 
 	private static final Path LOGFILE;

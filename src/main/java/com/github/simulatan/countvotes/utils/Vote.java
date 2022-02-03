@@ -5,21 +5,16 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-public class Vote {
+public record Vote(Candidate candidate, long time, int id) {
 
-	private final Candidate candidate;
-	private final long time = System.currentTimeMillis();
+	private static int nextId = 1;
 
 	public Vote(Candidate candidate) {
-		this.candidate = candidate;
+		this(candidate, System.currentTimeMillis(), nextId++);
 	}
 
-	public Candidate getCandidate() {
-		return candidate;
-	}
-
-	public long getTime() {
-		return time;
+	public String getTimeFormatted() {
+		return DATE_TIME_FORMATTER.format(Instant.ofEpochMilli(time));
 	}
 
 	private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter
@@ -27,7 +22,7 @@ public class Vote {
 			.withLocale(Locale.getDefault())
 			.withZone(ZoneId.systemDefault());
 	public String getFormatted() {
-		return candidate.getName() + " (" + DATE_TIME_FORMATTER.format(Instant.ofEpochMilli(time)) + ")";
+		return "#" + id + " " + candidate.getName() + " (" + getTimeFormatted() + ")";
 	}
 
 	@Override

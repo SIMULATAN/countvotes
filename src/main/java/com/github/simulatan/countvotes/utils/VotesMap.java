@@ -19,14 +19,14 @@ public class VotesMap extends HashMap<Candidate, List<Vote>> {
 	}
 
 	void addVote(Vote vote) {
-		final List<Vote> voteList = this.getOrDefault(vote.getCandidate(), new ArrayList<>());
+		final List<Vote> voteList = this.getOrDefault(vote.candidate(), new ArrayList<>());
 		voteList.add(vote);
-		this.put(vote.getCandidate(), voteList);
+		this.put(vote.candidate(), voteList);
 	}
 
 	void removeVote(Vote vote) {
-		final List<Vote> voteList = this.getOrDefault(vote.getCandidate(), new ArrayList<>());
+		final List<Vote> voteList = this.getOrDefault(vote.candidate(), new ArrayList<>());
 		voteList.remove(vote);
-		this.put(vote.getCandidate(), voteList);
+		this.put(vote.candidate(), voteList);
 	}
 }
