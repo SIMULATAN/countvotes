@@ -22,7 +22,7 @@ public record Vote(Candidate candidate, long time, int id) {
 			.withLocale(Locale.getDefault())
 			.withZone(ZoneId.systemDefault());
 	public String getFormatted() {
-		return "#" + id + " " + candidate.getName() + " (" + getTimeFormatted() + ")";
+		return "#" + id + " " + candidate.name() + " (" + getTimeFormatted() + ")";
 	}
 
 	@Override

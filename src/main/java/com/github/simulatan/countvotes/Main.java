@@ -7,9 +7,13 @@ import jcurses.event.ItemEvent;
 import jcurses.event.ValueChangedEvent;
 import jcurses.system.InputChar;
 import jcurses.system.Toolkit;
-import jcurses.widgets.*;
+import jcurses.widgets.DefaultLayoutManager;
+import jcurses.widgets.TextField;
+import jcurses.widgets.WidgetsConstants;
+import jcurses.widgets.Window;
 import marcono1234.gson.recordadapter.RecordTypeAdapterFactory;
 
+import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
@@ -21,8 +25,10 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.github.simulatan.countvotes.utils.VotesManager.*;
 
@@ -57,7 +63,55 @@ public class Main {
 			log(e);
 		}
 
-		window = new Window(width, height, true, "Count Votes");
+		window = new Window(width, height, true, "Count Votes") {
+			@Override
+			protected void handleInput(InputChar inp) {
+				if (inp.getCode() == InputChar.KEY_F3) {
+					PopUpMenu menu = new PopUpMenu(width / 2, height / 2 - 3, "Menu");
+					AtomicBoolean closing = new AtomicBoolean(false);
+					menu.add("Save Votes", VotesManager::saveVotes);
+					menu.add("Export to csv", () -> {
+						@SuppressWarnings("unchecked")
+						String csv = "Name;Votes\n" + votes
+								.entrySet()
+								.stream()
+								.sorted(Comparator.comparingInt(e -> ((Map.Entry<Candidate, java.util.List<Vote>>) e).getValue().size()).reversed())
+								.map(e -> e.getKey().name() + ";" + e.getValue().size())
+								.collect(Collectors.joining("\n"));
+						try {
+							File file = new File("votes" + System.currentTimeMillis() + ".csv");
+							Files.writeString(file.toPath(), csv, StandardOpenOption.CREATE);
+							PopUpMenu menu2 = new PopUpMenu(width / 2, height / 2 - 3, "Export to csv - saved");
+							menu2.add("Saved! Link: " + file.getAbsolutePath(), () -> {
+								// check if OS is windows
+								if (System.getProperty("os.name").toLowerCase().contains("win")) {
+									try {
+										Runtime.getRuntime().exec("explorer.exe /select," + file.getAbsolutePath());
+									} catch (IOException e) {
+										log(e.getMessage());
+									}
+								} else {
+									Desktop.getDesktop().browseFileDirectory(file);
+								}
+							});
+							menu2.add("Copy CSV content to clipboard", () -> java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(csv), null));
+							menu2.add("Back", () -> closing.set(true));
+							do {
+								menu2.show();
+							} while (!closing.get());
+							closing.set(false);
+						} catch (IOException e) {
+							log("Failed to export votes to csv: " + e.getMessage());
+						}
+					});
+					menu.add("Exit", () -> closing.set(true));
+					do {
+						menu.show();
+					} while (!closing.get());
+				}
+				super.handleInput(inp);
+			}
+		};
 		DefaultLayoutManager mgr = new DefaultLayoutManager();
 		mgr.bindToContainer(window.getRootPanel());
 
@@ -88,6 +142,9 @@ public class Main {
 		searchResultsList.setSelectable(false);
 		searchResultsList.add("Type something to search");
 		searchResultsList.addListener(val -> {
+			if (val.getType() == ItemEvent.DESELECTED) {
+				return;
+			}
 			Matcher matcher;
 			String candidateName;
 			if (val.getItem() instanceof String s && (matcher = newCandidatePattern.matcher(s)).matches()) {
@@ -101,7 +158,6 @@ public class Main {
 			recentActions.add(0, vote.getFormatted());
 			searchCandidateField.setText("");
 			updateVoteCount();
-			// TODO: fix
 			searchCandidateField.getFocus();
 		});
 
@@ -121,7 +177,7 @@ public class Main {
 
 	private static void showVoteInfo(int height, int width, ItemEvent event, Vote vote) {
 		List<String> lines = Arrays.asList(
-				"Candidate: " + vote.candidate().getName(),
+				"Candidate: " + vote.candidate().name(),
 				"Time: " + vote.getTimeFormatted(),
 				"Time (ms): " + vote.time(),
 				"ID: " + vote.id(),
@@ -137,7 +193,7 @@ public class Main {
 				break;
 			} else if (selectedItem.startsWith("Candidate: ")) {
 				PopUpMenu candidateInfo = new PopUpMenu(width / 2, height / 2 - 3, "Candidate information");
-				candidateInfo.add("Name: " + vote.candidate().getName());
+				candidateInfo.add("Name: " + vote.candidate().name());
 				List<Vote> votes = getVotes(vote.candidate());
 				candidateInfo.add("Vote Count: " + votes.size());
 				if (votes.size() > 0) {
@@ -202,7 +258,7 @@ public class Main {
 			.entrySet()
 			.stream()
 			.sorted(Comparator.comparingInt(e -> ((Map.Entry<Candidate, java.util.List<Vote>>) e).getValue().size()).reversed())
-			.forEach(e -> scores.add(e.getKey().getName() + ": " + e.getValue().size()));
+			.forEach(e -> scores.add(e.getKey().name() + ": " + e.getValue().size()));
 		recentActions.clear();
 		Utils.reverse(recentVotes.stream()
 				.map(Vote::getFormatted))
@@ -223,6 +279,7 @@ public class Main {
 	}
 
 	private static void updateSearchResults(String newValue) {
+		newValue = newValue.strip();
 		searchResultsList.clear();
 		votes.getCandidatesStartingWith(newValue).forEach(searchResultsList::add);
 

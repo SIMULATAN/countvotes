@@ -40,7 +40,7 @@ public class VotesManager {
 	}
 
 	private static final File VOTES_FILE = new File("votes.json");
-	private static synchronized void saveVotes() {
+	public static synchronized void saveVotes() {
 		try {
 			Files.writeString(VOTES_FILE.toPath(), GSON.toJson(votes));
 		} catch (Exception e) {

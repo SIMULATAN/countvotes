@@ -10,10 +10,6 @@ public record Candidate(String name) {
 		candidates.put(name, this);
 	}
 
-	public String getName() {
-		return this.name;
-	}
-
 	private static final HashMap<String, Candidate> candidates = new HashMap<>();
 
 	public static Candidate of(String name) {

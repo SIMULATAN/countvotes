@@ -9,7 +9,7 @@ public class VotesMap extends HashMap<Candidate, List<Vote>> {
 		return this
 			.keySet()
 			.stream()
-			.map(Candidate::getName)
+			.map(Candidate::name)
 			.filter(Objects::nonNull)
 			.filter(key -> key.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)))
 			.collect(Collectors.toList());
