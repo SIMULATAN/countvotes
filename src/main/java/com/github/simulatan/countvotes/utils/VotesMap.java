@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 
 public class VotesMap extends HashMap<Candidate, List<Vote>> {
 
-	public List<String> getCandidateStartingWith(String prefix) {
+	public List<String> getCandidatesStartingWith(String prefix) {
 		return this
 			.keySet()
 			.stream()

@@ -1,10 +1,14 @@
 package com.github.simulatan.countvotes;
 
 import com.github.simulatan.countvotes.utils.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import jcurses.event.ItemEvent;
+import jcurses.event.ValueChangedEvent;
 import jcurses.system.InputChar;
 import jcurses.system.Toolkit;
 import jcurses.widgets.*;
+import marcono1234.gson.recordadapter.RecordTypeAdapterFactory;
 
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
@@ -30,10 +34,17 @@ public class Main {
 	private static ListWidget recentActions;
 	private static TextField searchCandidateField;
 
+	public static final Gson GSON = new GsonBuilder()
+			.registerTypeAdapterFactory(RecordTypeAdapterFactory.DEFAULT)
+			.enableComplexMapKeySerialization()
+			.create();
+
 	public static void main(String[] args) {
 		log("Starting...");
 		System.setOut(new LogPrintStream(System.out));
 		System.setErr(new LogPrintStream(System.err));
+
+		VotesManager.loadVotes();
 
 		int height = Toolkit.getScreenHeight() / 16 * 15;
 		int width = Toolkit.getScreenWidth() / 16 * 15;
@@ -95,29 +106,59 @@ public class Main {
 		});
 
 		searchCandidateField.getFocus();
-		searchCandidateField.addListener(val -> {
-			searchResultsList.clear();
-			String newValue = ((TextField) val.getSource()).getText();
-			votes.getCandidateStartingWith(newValue).forEach(searchResultsList::add);
-
-			if (!newValue.isEmpty() && !votes.containsKey(Candidate.of(newValue)))
-				searchResultsList.add("Add new candidate with name \"" + newValue + "\"");
-
-			if (searchResultsList.getItemsCount() == 0) {
-				searchResultsList.add("Type something to search");
-				searchResultsList.setSelectable(false);
-			} else {
-				searchResultsList.setSelectable(true);
-			}
-			window.show();
-		});
+		searchCandidateField.addListener(Main::updateSearchResults);
 
 		mgr.addWidget(searchCandidateField, 40, 1, width - 82, height / 5, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
 		mgr.addWidget(searchResultsList, 40, 2, width - 82, height - 4, WidgetsConstants.ALIGNMENT_TOP, WidgetsConstants.ALIGNMENT_CENTER);
 		mgr.addWidget(scores, 0, 0, 40, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_LEFT);
 		mgr.addWidget(recentActions, width - 42, 0, 40, height - 2, WidgetsConstants.ALIGNMENT_CENTER, WidgetsConstants.ALIGNMENT_RIGHT);
+		initRecentActions();
+		updateSearchResults("");
+		updateVoteCount();
 		window.show();
 		Runtime.getRuntime().addShutdownHook(new Thread(window::close));
+	}
+
+	private static void showVoteInfo(int height, int width, ItemEvent event, Vote vote) {
+		List<String> lines = Arrays.asList(
+				"Candidate: " + vote.candidate().getName(),
+				"Time: " + vote.getTimeFormatted(),
+				"Time (ms): " + vote.time(),
+				"ID: " + vote.id(),
+				"Back"
+		);
+		PopUpMenu info = new PopUpMenu(width / 2, height / 2 - 3, "Vote information");
+		lines.forEach(info::add);
+		while (true) {
+			info.show();
+			String selectedItem = info.getSelectedItem();
+
+			if (selectedItem.equalsIgnoreCase("Back")) {
+				break;
+			} else if (selectedItem.startsWith("Candidate: ")) {
+				PopUpMenu candidateInfo = new PopUpMenu(width / 2, height / 2 - 3, "Candidate information");
+				candidateInfo.add("Name: " + vote.candidate().getName());
+				List<Vote> votes = getVotes(vote.candidate());
+				candidateInfo.add("Vote Count: " + votes.size());
+				if (votes.size() > 0) {
+					candidateInfo.add("Last Vote @ " + votes.get(votes.size() - 1).getTimeFormatted());
+				} else {
+					candidateInfo.add("No votes yet.");
+				}
+				candidateInfo.add("Back");
+				while (true) {
+					candidateInfo.show();
+					String candidateItem = candidateInfo.getSelectedItem();
+					if (candidateItem.equalsIgnoreCase("Back")) {
+						break;
+					}
+					java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(candidateItem), null);
+				}
+			} else {
+				java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(selectedItem), null);
+			}
+		}
+		showContextMenu(height, width, event);
 	}
 
 	private static void showContextMenu(int height, int width, ItemEvent event) {
@@ -147,20 +188,7 @@ public class Main {
 		} else if (menu.getSelectedItem().equalsIgnoreCase("Show information")) {
 			log("Showing info for: " + vote);
 			if (vote != null) {
-				List<String> lines = Arrays.asList(
-					"Candidate: " + vote.candidate().getName(),
-					"Time: " + vote.getTimeFormatted(),
-					"Time (ms): " + vote.time(),
-					"ID: " + vote.id(),
-					"Back"
-				);
-				PopUpMenu info = new PopUpMenu(width / 2, height / 2 - 3, "Vote information");
-				lines.forEach(info::add);
-				do {
-					info.show();
-					java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(info.getSelectedItem()), null);
-				} while (!info.getSelectedItem().equalsIgnoreCase("Back"));
-				showContextMenu(height, width, event);
+				showVoteInfo(height, width, event, vote);
 			}
 		}
 	}
@@ -188,6 +216,30 @@ public class Main {
 			recentActions.setFocusable(true);
 		}
 		window.show();
+	}
+
+	private static void updateSearchResults(ValueChangedEvent val) {
+		updateSearchResults(((TextField) val.getSource()).getText());
+	}
+
+	private static void updateSearchResults(String newValue) {
+		searchResultsList.clear();
+		votes.getCandidatesStartingWith(newValue).forEach(searchResultsList::add);
+
+		if (!newValue.isEmpty() && !votes.containsKey(Candidate.of(newValue)))
+			searchResultsList.add("Add new candidate with name \"" + newValue + "\"");
+
+		window.show();
+	}
+
+	private static void initRecentActions() {
+		recentVotes.clear();
+		List<Vote> e = votes.values().stream()
+				.flatMap(List::stream)
+				.sorted(Comparator.comparingLong(Vote::time))
+				.toList();
+		recentVotes.addAll(e);
+		Vote.nextId = e.stream().max(Comparator.comparingLong(Vote::id)).map(Vote::id).orElse(0) + 1;
 	}
 
 	private static Vote getVote(String name) {

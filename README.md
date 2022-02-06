@@ -1,10 +1,10 @@
 # Countvotes
 This is a project written entirely in Java that allows you to count votes.
 
-It is based on a TUI that allows you to dynamically add and remove people, check recent votes (and delete those) and it stores all information in files.
+It is based on a TUI that allows you to dynamically add new people, check recent votes (and delete those) and it stores all information in files (including fully automatic backups!).
 
-This TUI is written entirely in Java and uses the JCurses library.
-Under the hood, it currently utilizes guava and shadow in a gradle environment.
+This TUI is written entirely in Java and uses the [JCurses](https://sourceforge.net/projects/javacurses/) library.
+Under the hood, it currently utilizes [guava](https://github.com/google/guava), [gson](https://github.com/google/gson), [gson-record-type-adapter-factory](https://github.com/Marcono1234/gson-record-type-adapter-factory) and [shadow](https://github.com/johnrengelman/shadow) in a gradle environment.
 
 ### How to build the program
 - run `gradlew shadowJar`

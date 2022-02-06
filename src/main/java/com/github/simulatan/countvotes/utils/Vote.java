@@ -7,7 +7,7 @@ import java.util.Locale;
 
 public record Vote(Candidate candidate, long time, int id) {
 
-	private static int nextId = 1;
+	public static int nextId = 1;
 
 	public Vote(Candidate candidate) {
 		this(candidate, System.currentTimeMillis(), nextId++);

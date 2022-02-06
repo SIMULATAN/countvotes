@@ -13,6 +13,7 @@ repositories {
         dirs 'libs'
     }
     mavenCentral()
+    maven { url = "https://jitpack.io" }
 }
 
 dependencies {
@@ -24,6 +25,8 @@ dependencies {
 
     implementation name: 'jcurses'
     implshadow 'com.google.guava:guava:31.0.1-jre'
+    implshadow 'com.google.code.gson:gson:2.8.9'
+    implshadow 'com.github.Marcono1234:gson-record-type-adapter-factory:main-SNAPSHOT'
 }
 
 shadowJar {
