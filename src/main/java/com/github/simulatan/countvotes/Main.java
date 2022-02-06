@@ -219,34 +219,23 @@ public class Main {
 
 	private static void showContextMenu(int height, int width, ItemEvent event) {
 		PopUpMenu menu = new PopUpMenu(width / 2 + 5, height / 2 - 2, "Context Actions");
-		menu.add("Delete");
-		menu.add("Show information");
+		menu.add("Delete", () -> {
+			Vote vote = getVote((String) event.getItem());
+			PopUpMenu confirm = new PopUpMenu(width / 2 + 5, height / 2 - 2, "Delete vote?");
+			confirm.add("Confirm Deletion");
+			confirm.add("Don't delete");
+			confirm.show();
+			if (confirm.getSelectedItem().equals("Confirm Deletion")) {
+				removeVote(vote);
+				menu.remove((String) event.getItem());
+				updateVoteCount();
+			} else {
+				showContextMenu(height, width, event);
+			}
+		});
+		menu.add("Show information", () -> showVoteInfo(height, width, event, getVote((String) event.getItem())));
 		menu.add("Cancel");
 		menu.show();
-		String item = (String) event.getItem();
-		Vote vote = getVote(item);
-		if (menu.getSelectedItem().equals("Delete")) {
-			if (vote != null) {
-				PopUpMenu confirm = new PopUpMenu(width / 2 + 5, height / 2 - 2, "Delete vote?");
-				confirm.add("Confirm Deletion");
-				confirm.add("Don't delete");
-				confirm.show();
-				if (confirm.getSelectedItem().equals("Confirm Deletion")) {
-					removeVote(vote);
-					menu.remove(item);
-					updateVoteCount();
-				} else {
-					showContextMenu(height, width, event);
-				}
-			} else {
-				log("Vote not found (formatted: " + event.getItem() + ")\n " + votes);
-			}
-		} else if (menu.getSelectedItem().equalsIgnoreCase("Show information")) {
-			log("Showing info for: " + vote);
-			if (vote != null) {
-				showVoteInfo(height, width, event, vote);
-			}
-		}
 	}
 
 	@SuppressWarnings("unchecked")
