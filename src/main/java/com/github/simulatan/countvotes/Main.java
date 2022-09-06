@@ -1,15 +1,15 @@
 package com.github.simulatan.countvotes;
 
 import com.github.simulatan.countvotes.utils.*;
+import com.github.simulatan.countvotes.utils.PopUpMenu;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import jcurses.event.ItemEvent;
 import jcurses.event.ValueChangedEvent;
 import jcurses.system.InputChar;
 import jcurses.system.Toolkit;
-import jcurses.widgets.DefaultLayoutManager;
+import jcurses.widgets.*;
 import jcurses.widgets.TextField;
-import jcurses.widgets.WidgetsConstants;
 import jcurses.widgets.Window;
 import marcono1234.gson.recordadapter.RecordTypeAdapterFactory;
 
@@ -21,10 +21,8 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -129,6 +127,10 @@ public class Main {
 			@Override
 			protected boolean handleInput(InputChar ch) {
 				if (ch.isSpecialCode()) return super.handleInput(ch);
+
+				if (ch.getCharacter() == '\b') {
+					window.show();
+				}
 
 				if (validCandidateNames.matcher(Character.toString(ch.getCharacter())).matches())
 					return super.handleInput(ch);
@@ -267,15 +269,20 @@ public class Main {
 		updateSearchResults(((TextField) val.getSource()).getText());
 	}
 
+	private static boolean foundLastTime = false;
 	private static void updateSearchResults(String newValue) {
 		newValue = newValue.strip();
 		searchResultsList.clear();
 		votes.getCandidatesStartingWith(newValue).forEach(searchResultsList::add);
 
-		if (!newValue.isEmpty() && !votes.containsKey(Candidate.of(newValue)))
-			searchResultsList.add("Add new candidate with name \"" + newValue + "\"");
-
-		window.show();
+		if (!newValue.isEmpty() && searchResultsList.getItemsCount() == 0) {
+			searchResultsList.add("Add new candidate");
+			if (foundLastTime) window.show();
+			foundLastTime = false;
+		} else {
+			window.show();
+			foundLastTime = true;
+		}
 	}
 
 	private static void initRecentActions() {
